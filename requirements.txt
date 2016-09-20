@@ -1,11 +1,4 @@
-pip
-git+https://github.com/rhos-infra/infrared-core.git@provisioner-fix#egg=infrared-core
-pytz>=2016.3
-os-client-config==1.13.1
-shade==1.7.0
-ipaddress==1.0.16
-requests>=2.9.1
-Babel!=2.3.0,!=2.3.1,!=2.3.2,!=2.3.3,>=1.3
-
+-r plugin_requirements.txt
+git+https://github.com/rhos-infra/infrared-core.git@master#egg=infrared-core
 # install itself
 -e .
