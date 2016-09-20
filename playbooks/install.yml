@@ -1,0 +1,88 @@
+---
+- name: Set selinux state
+  hosts: all:!localhost
+  tags: init
+  gather_facts: no
+  become: yes
+  tasks:
+    - selinux:
+          policy: "targeted"
+          state: "{{ installer.selinux|default('enforcing') }}"
+
+- name: Ensure yum presence
+  hosts: all:!localhost
+  gather_facts: no
+  tags: init
+  become: yes
+  tasks:
+    - shell: python -c 'import yum' || (dnf install -y yum yum-utils && ln -snf /usr/bin/yum-deprecated /usr/bin/yum)
+
+- name: Setup Firewall Rules
+  hosts: openstack_nodes:!tester
+  gather_facts: no
+  tags: init
+  become: yes
+  serial: 1
+  tasks:
+      #TODO: change to iptables ansible module
+      - name: Iptables - Set default rules
+        command: "iptables {{ item }}"
+        with_items: "{{ installer.firewall.rules }}"
+
+      # packstack does not change the rules if they do not conflict
+      # and they are saved, so save them.
+      - name: Iptables - Save default rules
+        shell: /sbin/iptables-save >/etc/sysconfig/iptables
+
+- name: Dump all facts before the installation begins
+  hosts: openstack_nodes
+  gather_facts: no
+  tags: dump_facts
+  tasks:
+      - name: Dumping all facts
+        setup:
+        register: initial_facts
+
+      - name: Writing facts into files
+        copy:
+            content: "{{ initial_facts.ansible_facts }}"
+            dest: "{{ inventory_dir }}/{{ inventory_hostname }}"
+        delegate_to: localhost
+
+- name: Deploy and configure external loadbalancer instance
+  hosts: loadbalancer
+  tags: loadbalancer
+  roles:
+    - role: installer/rhos-release
+      rr_rpm_url: "{{ installer.product.rpm }}"
+      director_version: "{{ installer.product.version }}"
+      director_build: "{{ installer.product.build }}"
+      core_version: "{{ installer.product.core.version }}"
+      core_build: "{{ installer.product.core.build }}"
+      mirror: "{{ installer.mirror | default(omit) }}"
+      when: groups.loadbalancer is defined
+    - role: loadbalancer
+      when: groups.loadbalancer is defined
+
+- include: "installer/{{ installer.type }}/main.yml"
+
+- name: Update the inventory file
+  hosts: localhost
+  tags: inventory_update
+  gather_facts: no
+  tasks:
+      - name: update ansible.ssh.config template for SSH tunneling if virthost
+        template:
+            src: "{{ inventory_dir }}/templates/ansible.ssh.config.j2"
+            dest: "{{ inventory_dir }}/ansible.ssh.config"
+
+      - name: Generate new Inventory file
+        template:
+          dest: "{{ lookup('env', 'PWD') }}/hosts-installer"
+          src: "{{ inventory_dir }}/templates/inventory.j2"
+
+      - name: Link to new Inventory file
+        file:
+          dest: "{{ lookup('env', 'PWD') }}/hosts"
+          state: link
+          src: "{{ lookup('env', 'PWD') }}/hosts-installer"

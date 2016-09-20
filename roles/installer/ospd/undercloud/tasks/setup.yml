@@ -1,0 +1,67 @@
+- name: set hostname
+  hostname:
+      name: "{{ inventory_hostname }}.redhat.local"
+
+- name: update /etc/hosts with undercloud details
+  lineinfile:
+      dest: "/etc/hosts"
+      line: "{{ ansible_ssh_host }}    {{ inventory_hostname }}.redhat.local {{ inventory_hostname }}"
+      state: present
+
+- name: Creating extra repositories
+  yum_repository:
+      name: "{{ item.name }}"
+      state: "{{ item.name | default(omit) }}"
+      file: "{{ item.file| default(omit) }}"
+      description: "{{ item.description | default(omit) }}"
+      baseurl: "{{ item.baseurl | default(omit) }}"
+      mirrorlist: "{{ item.mirrorlist | default(omit) }}"
+      enabled: "{{ item.enabled | default(omit) }}"
+      gpgcheck: "{{ item.gpgcheck | default(omit) }}"
+  with_items: "{{ (installer.extra_repos|default({})).explicit | default([]) }}"
+  when: (installer.extra_repos|default({})).from_config is defined
+
+- name: Downloading extra repositories
+  get_url:
+      url: "{{ item }}"
+      dest: /etc/yum.repos.d/
+  with_items: "{{ (installer.extra_repos|default({})).from_url | default([]) }}"
+  when: (installer.extra_repos|default({})).from_url is defined
+
+- name: update system packages
+  yum:
+      state: latest
+      name: "*"
+  register: update
+
+- name: reboot the undercloud
+  shell: "sleep 2 && shutdown -r now"
+  async: 1
+  poll: 0
+  ignore_errors: true
+  when: update.changed
+
+- name: waiting for the undercloud to be available
+  wait_for:
+      port: 22
+      host: "{{ ansible_ssh_host }}"
+      search_regex: OpenSSH
+      delay: 10
+  delegate_to: "{% if 'virthost' in groups %}virthost{% else %}localhost{% endif %}"
+  when: update.changed
+
+- name: install the oscplugin/tripleO client
+  yum:
+      name: "{{ (installer.product.version == '7') | ternary('python-rdomanager-oscplugin', 'python-tripleoclient') }}"
+      state: present
+
+- name: create user
+  user:
+      name: "{{ installer.user.name }}"
+      state: present
+      password: "{{ installer.user.password | password_hash('sha512') }}"
+
+- name: add user to sudoers
+  lineinfile:
+      dest: "/etc/sudoers"
+      line: "{{ installer.user.name }} ALL=(root) NOPASSWD:ALL"
