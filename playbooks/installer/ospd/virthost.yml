@@ -25,6 +25,11 @@
             name: ipxe-roms-qemu
         register: update
 
+# todo(obaranov) remove debug
+- hosts: localhost
+  tasks:
+      - debug: var=groups
+
 - include: "undercloud-restore.yml"
   when: "'undercloud' not in groups"
 
