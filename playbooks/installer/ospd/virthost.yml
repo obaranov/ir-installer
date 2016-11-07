@@ -9,7 +9,9 @@
         director_build: "{{ installer.product.build }}"
         core_version: "{{ installer.product.core.version }}"
         core_build: "{{ installer.product.core.build }}"
+        rr_distro_version: "{% if installer.product.version|int < 10 %}7.2{% else %}7.3{% endif %}"
         mirror: "{{ installer.mirror | default(omit) }}"
+        when: "{{ ansible_distribution_version }} == 7.2"
   tasks:
       - name: update /etc/hosts with VMs details
         lineinfile:
@@ -25,10 +27,11 @@
             name: ipxe-roms-qemu
         register: update
 
-# todo(obaranov) remove debug
-- hosts: localhost
-  tasks:
-      - debug: var=groups
+      # (fhubik) Detect bug in ansible, packages with long names aren't parsed correctly and upgraded
+      # Remove when fixed (https://github.com/ansible/ansible-modules-core/issues/4318)
+      - name: make sure we have latest ipxe-roms-qemu (workaround ansible-modules-core yum bug 4318)
+        shell: yum install ipxe-roms-qemu -y
+        when: not update|changed
 
 - include: "undercloud-restore.yml"
   when: "'undercloud' not in groups"
@@ -106,6 +109,15 @@
         authorized_key:
             user: "{{ installer.user.name }}"
             key: "{{ undercloud_public_key.stdout }}"
+
+- name: Power off overcloud nodes VMs so they can be properly registered
+  hosts: virthost
+  gather_facts: no
+  tasks:
+      - name: power off overcloud nodes
+        shell: "virsh destroy {{ item }}"
+        with_items: "{{ groups['overcloud_nodes'] }}"
+        when: "{{ installer.product.version | int == 10 }}"
 
 - include: "undercloud-backup.yml"
   tags: backup
