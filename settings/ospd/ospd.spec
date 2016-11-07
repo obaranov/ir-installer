@@ -4,13 +4,6 @@ subparsers:
         help: Installs openstack using OSP Director
         include_groups: ['Ansible options', 'Inventory hosts options', 'Common options', 'Configuration file options']
         groups:
-            - title: Firewall
-              options:
-                  firewall:
-                      type: YamlFile
-                      help: The firewall configuration
-                      default: default.yml
-
             - title: Introspection
               options:
                   instackenv-file:
@@ -116,6 +109,27 @@ subparsers:
                       choices: ['ipv4', 'ipv6']
                       default: 'ipv4'
 
+                  network-lbaas:
+                      type: Value
+                      help: Activate Neutron LBaaS(v2) extension on the OverCloud.
+                      choices: ['yes', 'no']
+                      default: 'no'
+
+                  public-network:
+                      type: Value
+                      help: Deploy "public" external network on the OverCloud as post-install.
+                      choices: ['yes', 'no']
+                      default: 'yes'
+
+                  public-subnet:
+                      type: YamlFile
+                      help: |
+                          Subnet detail for "public" external network on the OverCloud as post-install.
+                          CIDR
+                          Allocation Pool
+                          Gateway
+                      default: default.yml
+
             - title: Overcloud storage
               options:
                   storage-backend:
@@ -157,6 +171,13 @@ subparsers:
                         Note: This can take a while and is not 100%% stable due to old libguestfs on RHEL-7.2
                     choices: ['no', 'yes', 'verbose']
                     default: 'no'
+
+                images-cleanup:
+                    type: Value
+                    help: |
+                        Removes all the downloaded images when images-task is in 'rpm' or 'import'
+                    choices: ['no', 'yes']
+                    default: 'yes'
 
             - title: User
               options:

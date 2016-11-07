@@ -4,13 +4,6 @@ subparsers:
         help: OpenStack installation using Packstack
         include_groups: ['Ansible options', 'Inventory hosts options', 'Common options', 'Configuration file options']
         groups:
-            - title: Firewall
-              options:
-                firewall:
-                    type: YamlFile
-                    help: The firewall configuration
-                    default: default.yml
-
             - title: Storage
               options:
                   storage:
@@ -54,6 +47,21 @@ subparsers:
                       type: YamlFile
                       help: Network variant
                       default: neutron_ml2-vxlan.yml
+                  public-network:
+                      type: Value
+                      help: Deploy "public" external network on the Cloud as post-install.
+                      choices: ['yes', 'no']
+                      default: 'yes'
+                  public-subnet:
+                      type: YamlFile
+                      help: |
+                          Subnet detail for "public" external network on the OverCloud as post-install.
+                          CIDR
+                          Allocation Pool
+                          Gateway
+
+                          If empty, will try to discover using "neutron.subnets.external" details
+                  # TODO(yfried): decouple this from openstack provisioner.
 
             - title: Product
               options:
@@ -66,6 +74,19 @@ subparsers:
                       type: Value
                       help: The product build
                       default: latest
+
+            - title: Extra components
+              options:
+                  component-sahara:
+                      type: Value
+                      help: Sahara enabled
+                      default: 'n'
+                      choices: ['y', 'n']
+                  component-trove:
+                      type: Value
+                      help: Trove enabled
+                      default: 'n'
+                      choices: ['y', 'n']
 
             - title: Cleanup
               options:

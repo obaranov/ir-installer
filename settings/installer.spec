@@ -1,4 +1,3 @@
-include_groups: ["Debug Options"]
 options:
     mirror:
         type: Value
