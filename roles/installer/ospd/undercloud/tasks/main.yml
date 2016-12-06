@@ -1,5 +1,6 @@
 - name: prepare the machine for undercloud deployment
   include: setup.yml
+  become: yes
 
 - name: check if undercloud.conf is under the deployment folder
   stat:
@@ -8,12 +9,13 @@
   register: undercloud_conf
 
 - name: copy our configuration if provided by the user
+  become: yes
   vars:
       local_src: "{%- if installer.undercloud is defined and installer.undercloud.config is defined and installer.undercloud.config -%}
           {{ installer.undercloud.config }}
           {%- elif undercloud_conf.stat.exists -%}
           {{ undercloud_conf.stat.path }}
-          {%- elif 'virthost' in groups.all -%}
+          {%- elif 'virthost' in groups or 'bmc' in groups -%}
           templates/undercloud.conf
           {%- else -%}
           False
@@ -36,7 +38,9 @@
       dest: "/home/{{ installer.user.name }}/undercloud_deploy.sh"
       mode: 0755
 
-- name: the create undercloud script
+- name: cat the undercloud script
+  become: yes
+  become_user: "{{ installer.user.name }}"
   shell: "cat /home/{{ installer.user.name }}/undercloud_deploy.sh"
 
 - name: install the undercloud

@@ -2,10 +2,14 @@
   hostname:
       name: "{{ inventory_hostname }}.redhat.local"
 
+# in case of ovb here we going to have the ansible_ssh_host=floating ip address
+# todo (obaranov) investigate better way and place to update ovb undercloud address
 - name: update /etc/hosts with undercloud details
+  vars:
+    host_address: "{%- if 'bmc' in groups -%}{{ ansible_default_ipv4.address }}{%- else -%}{{ ansible_ssh_host }}{%- endif -%}"
   lineinfile:
       dest: "/etc/hosts"
-      line: "{{ ansible_ssh_host }}    {{ inventory_hostname }}.redhat.local {{ inventory_hostname }}"
+      line: "{{ host_address }}   {{ inventory_hostname }}.redhat.local {{ inventory_hostname }}"
       state: present
 
 - name: Creating extra repositories
@@ -48,6 +52,7 @@
       search_regex: OpenSSH
       delay: 10
   delegate_to: "{% if 'virthost' in groups %}virthost{% else %}localhost{% endif %}"
+  become: no
   when: update.changed
 
 - name: install the oscplugin/tripleO client
